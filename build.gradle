@@ -1,0 +1,96 @@
+buildscript {
+    ext {
+        springBootVersion = '2.6.5'
+        wrapperVersion = '1.0.17.RELEASE'
+        shadowVersion = '5.1.0'
+    }
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven { url "https://repo.spring.io/snapshot" }
+        maven { url "https://repo.spring.io/milestone" }
+    }
+    dependencies {
+        classpath "com.github.jengelman.gradle.plugins:shadow:${shadowVersion}"
+        classpath("org.springframework.boot.experimental:spring-boot-thin-gradle-plugin:${wrapperVersion}")
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+        classpath("io.spring.gradle:dependency-management-plugin:1.0.8.RELEASE")
+    }
+}
+
+plugins {
+    id 'org.springframework.boot' version '2.6.5'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'java'
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url "https://repo.spring.io/snapshot" }
+    maven { url "https://repo.spring.io/milestone" }
+}
+
+ext {
+    set('springCloudVersion', "2021.0.1")
+    set('springCloudFunctionVersion', "3.2.1")
+    set('awsLambdaEventsVersion', "2.0.2")
+    set('awsLambdaCoreVersion', "1.2.1")
+}
+
+assemble.dependsOn = [shadowJar]
+
+
+tasks.named('jar') {
+    manifest {
+        attributes('MainClass': "com.example.cloudfunctionsaws.CloudFunctionsAwsApplication")
+    }
+}
+
+import com.github.jengelman.gradle.plugins.shadow.transformers.*
+
+shadowJar {
+    archiveClassifier = 'aws'
+    dependencies {
+        exclude(dependency("org.springframework.cloud:spring-cloud-function-web:${springCloudFunctionVersion}"))
+    }
+    // Required for Spring
+    mergeServiceFiles()
+    append 'META-INF/spring.handlers'
+    append 'META-INF/spring.schemas'
+    append 'META-INF/spring.tooling'
+    transform(PropertiesFileTransformer) {
+        paths = ['META-INF/spring.factories']
+        mergeStrategy = "append"
+    }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-function-dependencies:${springCloudFunctionVersion}"
+    }
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.cloud:spring-cloud-function-web'
+    implementation 'org.springframework.cloud:spring-cloud-function-adapter-aws'
+    implementation "com.amazonaws:aws-lambda-java-events:${awsLambdaEventsVersion}"
+    implementation "com.amazonaws:aws-lambda-java-core:${awsLambdaCoreVersion}"
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
